@@ -186,7 +186,7 @@
                 </div>
             </form>
             <p class="mt-6 text-center text-xs text-slate-500">
-                Use suas credenciais de superusuário do PocketBase.
+                Use suas credenciais de administrador do PocketBase.
             </p>
         </div>
     </div>
@@ -256,11 +256,12 @@
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Categoria</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Preço</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Descrição</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Status</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Ações</th>
                             </tr>
                         </thead>
                         <tbody id="productTableBody" class="divide-y divide-slate-700">
-                            <tr><td colspan="6" class="text-center text-slate-400 py-10 text-lg">Carregando produtos...</td></tr>
+                            <tr><td colspan="7" class="text-center text-slate-400 py-10 text-lg">Carregando produtos...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -269,7 +270,7 @@
     </div>
 
     <div id="productModal" class="modal">
-        <div class="modal-content max-w-2xl"> 
+        <div class="modal-content max-w-2xl">
             <div class="modal-header">
                 <h3 id="modalTitle" class="text-xl font-semibold text-white">Adicionar Produto</h3>
                 <button id="closeProductModal" class="p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition-colors" aria-label="Fechar modal">
@@ -293,14 +294,23 @@
                         <input type="number" name="price" id="productPrice" required step="0.01" class="mt-1 block w-full bg-slate-700 border-slate-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 text-white">
                     </div>
                 </div>
-                <div>
-                    <label for="productCategory" class="block font-medium text-slate-300">Categoria*</label>
-                    <select name="category" id="productCategory" required class="mt-1 block w-full bg-slate-700 border-slate-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 text-white">
-                        <option value="" disabled>Selecione uma categoria</option>
-                        <option value="Lanche">Lanche</option>
-                        <option value="Bebidas">Bebidas</option>
-                        <option value="Promoção">Promoção</option>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label for="productCategory" class="block font-medium text-slate-300">Categoria*</label>
+                        <select name="category" id="productCategory" required class="mt-1 block w-full bg-slate-700 border-slate-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 text-white">
+                            <option value="" disabled>Selecione uma categoria</option>
+                            <option value="Lanche">Lanche</option>
+                            <option value="Bebidas">Bebidas</option>
+                            <option value="Promoção">Promoção</option>
                         </select>
+                    </div>
+                    <div>
+                        <label for="productIsAvailable" class="block font-medium text-slate-300">Disponível*</label>
+                        <select name="isAvailable" id="productIsAvailable" required class="mt-1 block w-full bg-slate-700 border-slate-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 text-white">
+                            <option value="true">Sim</option>
+                            <option value="false">Não</option>
+                        </select>
+                    </div>
                 </div>
                 <div>
                     <label for="productDescription" class="block font-medium text-slate-300">Descrição</label>
@@ -335,15 +345,15 @@
 
 <script>
     // Variáveis de configuração da API e Coleções
-    const POCKETBASE_URL = 'http://localhost:8090';
-    const COLLECTION_NAME_PRODUCTS = 'food_collection';
-    const COLLECTION_NAME_SUPERUSERS = '_superusers';
+    const POCKETBASE_URL = 'http://localhost:8090'; // Altere para a URL do seu PocketBase se for diferente
+    const COLLECTION_NAME_PRODUCTS = 'food_collection'; // Confirme o nome da sua coleção de produtos
+    const COLLECTION_NAME_ADMINS = '_admins'; // Coleção padrão de administradores do PocketBase
     let pb; // Instância do PocketBase
 
     // Elementos do DOM
     let loginPage, dashboardPage, loginForm, loginError, loginButton, emailInput, passwordInput, togglePasswordButton, eyeIcon, eyeOffIcon;
     let userEmailDisplay, logoutButton, addProductButton, productTableBody, productModal, modalTitle, productForm, productFormError, productIdInput, closeProductModalButton, cancelProductFormButton, submitProductFormButton;
-    let productTitleInput, productPriceInput, productCategoryInput, productDescriptionInput, productImgTextInput, productImgFileInput, imagePreview, imagePreviewContainer, currentImageText, productOptionsInput;
+    let productTitleInput, productPriceInput, productCategoryInput, productDescriptionInput, productImgTextInput, productImgFileInput, imagePreview, imagePreviewContainer, currentImageText, productOptionsInput, productIsAvailableInput; // Adicionado productIsAvailableInput
     let sidebar, sidebarToggle, sidebarCloseButton, sidebarOverlay;
     let loaderOverlay;
 
@@ -357,7 +367,7 @@
         console.error("PocketBase SDK não carregou. Verifique a inclusão do script.", e);
         alert("Erro crítico: SDK do PocketBase não encontrado. O admin não funcionará.");
     }
-    
+
     // Funções Utilitárias
     function showLoader() {
         if(loaderOverlay) loaderOverlay.classList.remove('hidden');
@@ -373,7 +383,7 @@
         const notificationDiv = document.createElement('div');
         notificationDiv.id = notificationId;
         notificationDiv.className = `notification ${type === 'success' ? 'notification-success' : 'notification-error'}`;
-        
+
         let iconSvg = '';
         if (type === 'success') {
             iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline mr-2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
@@ -381,7 +391,7 @@
             iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline mr-2"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>`;
         }
         notificationDiv.innerHTML = `${iconSvg} ${message}`;
-        
+
         notificationArea.appendChild(notificationDiv);
 
         setTimeout(() => {
@@ -392,7 +402,7 @@
             notificationDiv.classList.remove('show');
             setTimeout(() => {
                 notificationDiv.remove();
-            }, 300); 
+            }, 300);
         }, duration);
     }
 
@@ -406,7 +416,8 @@
         loginButton.innerHTML = '<svg class="animate-spin h-5 w-5 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
 
         try {
-            const authData = await pb.collection(COLLECTION_NAME_SUPERUSERS).authWithPassword(
+            // Autenticar como administrador
+            const authData = await pb.admins.authWithPassword(
                 emailInput.value,
                 passwordInput.value
             );
@@ -426,28 +437,29 @@
     function handleLogout() {
         showLoader();
         pb.authStore.clear();
-        if(emailInput) emailInput.value = ''; 
-        if(passwordInput) passwordInput.value = ''; 
+        if(emailInput) emailInput.value = '';
+        if(passwordInput) passwordInput.value = '';
         updateAuthState();
         hideLoader();
     }
 
     function updateAuthState() {
-        const isValidUser = pb.authStore.isValid && pb.authStore.record?.collectionName === COLLECTION_NAME_SUPERUSERS;
-        
-        loginPage.classList.toggle('hidden', isValidUser);
-        loginPage.classList.toggle('flex', !isValidUser);
-        dashboardPage.classList.toggle('hidden', !isValidUser);
-        dashboardPage.classList.toggle('flex', isValidUser);
+        // Verifica se o usuário autenticado é um administrador
+        const isAdmin = pb.authStore.isValid && pb.authStore.model && pb.authStore.model.id;
 
-        if (isValidUser) {
-            userEmailDisplay.textContent = `Olá, ${pb.authStore.record.email}`;
+        loginPage.classList.toggle('hidden', isAdmin);
+        loginPage.classList.toggle('flex', !isAdmin);
+        dashboardPage.classList.toggle('hidden', !isAdmin);
+        dashboardPage.classList.toggle('flex', isAdmin);
+
+        if (isAdmin) {
+            userEmailDisplay.textContent = `Olá, ${pb.authStore.model.email}`;
             fetchProducts();
         } else {
-            if (productTableBody) productTableBody.innerHTML = '<tr><td colspan="6" class="text-center text-slate-400 py-10 text-lg">Faça login para ver os produtos.</td></tr>';
+            if (productTableBody) productTableBody.innerHTML = '<tr><td colspan="7" class="text-center text-slate-400 py-10 text-lg">Faça login para ver os produtos.</td></tr>';
         }
     }
-    
+
     function checkInitialAuth() {
         updateAuthState();
     }
@@ -456,15 +468,15 @@
     async function fetchProducts() {
         if (!pb.authStore.isValid) return;
         showLoader();
-        productTableBody.innerHTML = '<tr><td colspan="6" class="text-center text-slate-400 py-10 text-lg">Carregando produtos...</td></tr>';
+        productTableBody.innerHTML = '<tr><td colspan="7" class="text-center text-slate-400 py-10 text-lg">Carregando produtos...</td></tr>';
         try {
-            const resultList = await pb.collection(COLLECTION_NAME_PRODUCTS).getList(1, 100, {
+            const resultList = await pb.collection(COLLECTION_NAME_PRODUCTS).getList(1, 100, { // Ajuste a paginação conforme necessário
                 sort: '-created',
             });
             renderProductTable(resultList.items);
         } catch (err) {
             console.error('Failed to fetch products:', err);
-            productTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-red-400 py-10 text-lg">Falha ao carregar produtos: ${err.message}</td></tr>`;
+            productTableBody.innerHTML = `<tr><td colspan="7" class="text-center text-red-400 py-10 text-lg">Falha ao carregar produtos: ${err.message}</td></tr>`;
             displayNotification(`Falha ao carregar produtos: ${err.message}`, 'error');
         } finally {
             hideLoader();
@@ -472,35 +484,53 @@
     }
 
     function renderProductTable(products) {
-        productTableBody.innerHTML = ''; 
+        productTableBody.innerHTML = '';
         if (products.length === 0) {
-            productTableBody.innerHTML = '<tr><td colspan="6" class="text-center text-slate-400 py-10 text-lg">Nenhum produto cadastrado.</td></tr>';
+            productTableBody.innerHTML = '<tr><td colspan="7" class="text-center text-slate-400 py-10 text-lg">Nenhum produto cadastrado.</td></tr>';
             return;
         }
 
         products.forEach(product => {
             const row = productTableBody.insertRow();
             row.className = 'hover:bg-slate-700/30 transition-colors';
-            row.dataset.productId = product.id; 
-            
+            row.dataset.productId = product.id;
+
             let imageUrl = 'https://placehold.co/100x100/334155/475569?text=Sem+Img&font=Inter';
             if (product.img) {
                  if (product.img.startsWith('http://') || product.img.startsWith('https://')) {
                     imageUrl = product.img;
                  } else {
+                    // Usar a thumbnail se configurada, ou a imagem original
+                    // Exemplo de thumbnail: ?thumb=100x100
                     imageUrl = `${POCKETBASE_URL}/api/files/${product.collectionId || COLLECTION_NAME_PRODUCTS}/${product.id}/${product.img}`;
                  }
             }
+            // Define isAvailable como true se não estiver definido (para compatibilidade com produtos antigos)
+            const isAvailable = product.isAvailable === undefined ? true : product.isAvailable;
 
             row.innerHTML = `
                 <td class="px-6 py-4 whitespace-nowrap">
                     <img src="${imageUrl}" alt="${product.title || 'Imagem do produto'}" class="h-12 w-12 rounded-md object-cover border border-slate-600 product-image-in-table" onerror="this.onerror=null;this.src='https://placehold.co/100x100/334155/475569?text=Erro&font=Inter';">
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">${product.title}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300">${product.category}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">${product.title || '-'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300">${product.category || '-'}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300">R$ ${Number(product.price || 0).toFixed(2).replace('.', ',')}</td>
                 <td class="px-6 py-4 text-sm text-slate-400 max-w-xs truncate" title="${product.description || ''}">${product.description || '-'}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                    ${isAvailable
+                        ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-emerald-700 text-emerald-100">Disponível</span>'
+                        : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-700 text-red-100">Indisponível</span>'
+                    }
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-1">
+                    <button class="toggle-availability-btn p-2 rounded-md hover:bg-slate-700 transition-colors ${isAvailable ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}"
+                            data-id="${product.id}" data-current-status="${isAvailable}"
+                            title="${isAvailable ? 'Marcar como Indisponível' : 'Marcar como Disponível'}">
+                        ${isAvailable
+                            ? '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye-off"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>'
+                            : '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>'
+                        }
+                    </button>
                     <button class="edit-product-btn text-emerald-400 hover:text-emerald-300 p-2 rounded-md hover:bg-slate-700 transition-colors" data-id="${product.id}" title="Editar">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     </button>
@@ -517,17 +547,45 @@
         document.querySelectorAll('.delete-product-btn').forEach(button => {
             button.addEventListener('click', () => handleDeleteProduct(button.dataset.id));
         });
+        document.querySelectorAll('.toggle-availability-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const productId = button.dataset.id;
+                const currentStatus = button.dataset.currentStatus === 'true'; // Convert string to boolean
+                handleToggleAvailability(productId, currentStatus);
+            });
+        });
     }
+
+    async function handleToggleAvailability(productId, currentStatus) {
+        showLoader();
+        const newStatus = !currentStatus;
+        try {
+            await pb.collection(COLLECTION_NAME_PRODUCTS).update(productId, {
+                isAvailable: newStatus
+            });
+            displayNotification(`Produto ${newStatus ? 'ativado' : 'desativado'} com sucesso!`, 'success');
+            fetchProducts(); // Recarrega a lista para mostrar a alteração
+        } catch (err) {
+            console.error('Failed to toggle product availability:', err);
+            displayNotification(`Falha ao alterar disponibilidade: ${err.message}`, 'error');
+        } finally {
+            hideLoader();
+        }
+    }
+
 
     function openProductModal(product = null) {
         currentEditingProductId = product ? product.id : null;
-        productForm.reset(); 
+        productForm.reset();
         productFormError.classList.add('hidden');
         productFormError.querySelector('p').textContent = '';
         imagePreview.classList.add('hidden');
-        imagePreview.src = '#'; 
+        imagePreview.src = '#';
         currentImageText.classList.add('hidden');
-        productImgFileInput.value = ''; 
+        productImgFileInput.value = '';
+
+        // Selecionar o campo isAvailable aqui, pois ele está dentro do modal
+        const productIsAvailableField = document.getElementById('productIsAvailable');
 
         if (product) {
             modalTitle.textContent = 'Editar Produto';
@@ -535,11 +593,13 @@
             productIdInput.value = product.id;
             productTitleInput.value = product.title || '';
             productPriceInput.value = product.price || 0;
-            productCategoryInput.value = product.category || ''; // Set category for select
+            productCategoryInput.value = product.category || '';
             productDescriptionInput.value = product.description || '';
-            productImgTextInput.value = product.img || ''; 
+            productImgTextInput.value = product.img || '';
             productOptionsInput.value = product.options ? (typeof product.options === 'string' ? product.options : JSON.stringify(product.options, null, 2)) : '[]';
-            
+            productIsAvailableField.value = product.isAvailable === undefined ? 'true' : String(product.isAvailable);
+
+
             if (product.img) {
                 let imageUrl = product.img;
                 if (!(product.img.startsWith('http://') || product.img.startsWith('https://'))) {
@@ -555,6 +615,7 @@
             submitProductFormButton.textContent = 'Adicionar Produto';
             productIdInput.value = '';
             productCategoryInput.value = ""; // Default to empty for new product
+            productIsAvailableField.value = 'true'; // Default para novos produtos
         }
         productModal.classList.add('active');
     }
@@ -584,12 +645,15 @@
             return;
         }
 
-        const dataPayload = new FormData(); 
+        const productIsAvailableField = document.getElementById('productIsAvailable');
+
+        const dataPayload = new FormData();
         dataPayload.append('title', productTitleInput.value);
         dataPayload.append('price', parseFloat(productPriceInput.value));
-        dataPayload.append('category', productCategoryInput.value); // Get value from select
+        dataPayload.append('category', productCategoryInput.value);
         dataPayload.append('description', productDescriptionInput.value);
         dataPayload.append('options', JSON.stringify(parsedOptions));
+        dataPayload.append('isAvailable', productIsAvailableField.value === 'true'); // Converte string para boolean
 
         const imageFile = productImgFileInput.files[0];
         const imgTextValue = productImgTextInput.value.trim();
@@ -597,11 +661,21 @@
         if (imageFile) {
             dataPayload.append('img', imageFile);
         } else if (imgTextValue === '' && currentEditingProductId) {
+            // Se o campo de texto da imagem estiver vazio E estiver editando,
+            // significa que o usuário pode querer remover a imagem.
+            // Para o PocketBase remover um arquivo, você pode enviar `null` para o campo.
+            // No entanto, se o campo imgText for usado para URLs, essa lógica pode precisar de ajuste.
+            // Se img for obrigatório e não pode ser null, omita o append ou envie uma string vazia
+            // dependendo da configuração do campo no PocketBase.
+            // Para este exemplo, vamos assumir que enviar null remove a imagem.
             dataPayload.append('img', null);
         } else if (imgTextValue) {
             dataPayload.append('img', imgTextValue);
         }
-        
+        // Se nem imageFile nem imgTextValue for fornecido e for um novo produto,
+        // o campo 'img' simplesmente não será enviado, e o PocketBase usará o valor padrão
+        // ou marcará como erro se for obrigatório.
+
         try {
             if (currentEditingProductId) {
                 await pb.collection(COLLECTION_NAME_PRODUCTS).update(currentEditingProductId, dataPayload);
@@ -615,7 +689,7 @@
         } catch (err) {
             console.error('Failed to save product:', err.data || err);
             let errorMessage = 'Erro ao salvar produto.';
-            if (err.data && err.data.data) { 
+            if (err.data && err.data.data) {
                 const fieldErrors = Object.entries(err.data.data).map(([field, errorDetail]) => {
                     return `${field}: ${errorDetail.message}`;
                 }).join('; ');
@@ -649,36 +723,51 @@
             }
         }
     }
-    
+
     function handleImagePreview(event) {
         const file = event.target.files[0];
         if (file) {
+            const oldObjectURL = imagePreview.src;
             imagePreview.src = URL.createObjectURL(file);
             imagePreview.classList.remove('hidden');
-            currentImageText.classList.add('hidden'); 
-            productImgTextInput.value = file.name; 
+            currentImageText.classList.add('hidden');
+            productImgTextInput.value = ''; // Limpa o campo de texto se um arquivo for selecionado
+
+            // Revoga o Object URL anterior se ele foi criado por createObjectURL
+            if (oldObjectURL && oldObjectURL.startsWith('blob:')) {
+                URL.revokeObjectURL(oldObjectURL);
+            }
         } else {
-            if (currentEditingProductId && productForm.elements.imgText.value) {
-                 let originalImageUrl = productForm.elements.imgText.value; 
+            // Se o input de arquivo for limpo, restaura a imagem com base no productImgTextInput se houver
+            const imgTextVal = productImgTextInput.value.trim();
+            if (currentEditingProductId && imgTextVal) {
+                 let originalImageUrl = imgTextVal;
                  if (!(originalImageUrl.startsWith('http://') || originalImageUrl.startsWith('https://'))) {
-                    const rowImage = document.querySelector(`tr[data-product-id="${currentEditingProductId}"] .product-image-in-table`);
-                    if(rowImage && rowImage.src !== 'https://placehold.co/100x100/334155/475569?text=Sem+Img&font=Inter' && rowImage.src !== 'https://placehold.co/100x100/334155/475569?text=Erro&font=Inter'){
-                        imagePreview.src = rowImage.src;
-                        imagePreview.classList.remove('hidden');
-                        currentImageText.classList.remove('hidden');
-                    } else {
-                         imagePreview.classList.add('hidden');
-                         currentImageText.classList.add('hidden');
-                    }
-                 } else { 
+                    const record = (productTableBody.querySelector(`tr[data-product-id="${currentEditingProductId}"]`))
+                        ? pb.collection(COLLECTION_NAME_PRODUCTS).getOne(currentEditingProductId, { fields: 'collectionId,id,img' }).then(p => {
+                            if (p && p.img) {
+                                imagePreview.src = `${POCKETBASE_URL}/api/files/${p.collectionId || COLLECTION_NAME_PRODUCTS}/${p.id}/${p.img}`;
+                                imagePreview.classList.remove('hidden');
+                                currentImageText.classList.remove('hidden');
+                            } else {
+                                imagePreview.classList.add('hidden'); currentImageText.classList.add('hidden');
+                            }
+                        }).catch(() => { imagePreview.classList.add('hidden'); currentImageText.classList.add('hidden');})
+                        : (() => { imagePreview.classList.add('hidden'); currentImageText.classList.add('hidden');})();
+
+                 } else {
                     imagePreview.src = originalImageUrl;
                     imagePreview.classList.remove('hidden');
                     currentImageText.classList.remove('hidden');
                  }
-            } else { 
+            } else {
+                const oldObjectURL = imagePreview.src;
                 imagePreview.classList.add('hidden');
                 imagePreview.src = '#';
                 currentImageText.classList.add('hidden');
+                if (oldObjectURL && oldObjectURL.startsWith('blob:')) {
+                    URL.revokeObjectURL(oldObjectURL);
+                }
             }
         }
     }
@@ -699,7 +788,7 @@
         logoutButton = document.getElementById('logoutButton');
         addProductButton = document.getElementById('addProductButton');
         productTableBody = document.getElementById('productTableBody');
-        
+
         productModal = document.getElementById('productModal');
         modalTitle = document.getElementById('modalTitle');
         productForm = document.getElementById('productForm');
@@ -711,7 +800,7 @@
 
         productTitleInput = document.getElementById('productTitle');
         productPriceInput = document.getElementById('productPrice');
-        productCategoryInput = document.getElementById('productCategory'); // Now a select element
+        productCategoryInput = document.getElementById('productCategory');
         productDescriptionInput = document.getElementById('productDescription');
         productImgTextInput = document.getElementById('productImgText');
         productImgFileInput = document.getElementById('productImgFile');
@@ -719,12 +808,14 @@
         imagePreviewContainer = document.getElementById('imagePreviewContainer');
         currentImageText = document.getElementById('currentImageText');
         productOptionsInput = document.getElementById('productOptions');
+        // productIsAvailableInput será pego dentro das funções openProductModal e handleProductFormSubmit
+        // pois ele faz parte do DOM do modal que pode não estar sempre visível ou renderizado da mesma forma.
 
         sidebar = document.getElementById('sidebar');
         sidebarToggle = document.getElementById('sidebarToggle');
         sidebarCloseButton = document.getElementById('sidebarCloseButton');
         sidebarOverlay = document.getElementById('sidebarOverlay');
-        
+
         loaderOverlay = document.getElementById('loaderOverlay');
 
         document.getElementById('currentYear').textContent = new Date().getFullYear();
@@ -733,11 +824,11 @@
         if (logoutButton) logoutButton.addEventListener('click', handleLogout);
         if (addProductButton) addProductButton.addEventListener('click', () => openProductModal(null));
         if (productForm) productForm.addEventListener('submit', handleProductFormSubmit);
-        
+
         if (closeProductModalButton) closeProductModalButton.addEventListener('click', closeProductModal);
         if (cancelProductFormButton) cancelProductFormButton.addEventListener('click', closeProductModal);
-        if (productModal) productModal.addEventListener('click', (e) => { 
-            if (e.target === productModal) {
+        if (productModal) productModal.addEventListener('click', (e) => {
+            if (e.target === productModal) { // Fecha modal se clicar no overlay
                 closeProductModal();
             }
         });
@@ -752,7 +843,7 @@
                 togglePasswordButton.setAttribute('aria-label', isPassword ? 'Ocultar senha' : 'Mostrar senha');
             });
         }
-        
+
         if (sidebarToggle) {
             sidebarToggle.addEventListener('click', () => {
                 sidebar.classList.remove('hidden-mobile');
@@ -776,7 +867,7 @@
         }
         document.querySelectorAll('.sidebar-link').forEach(link => {
             link.addEventListener('click', () => {
-                 if (window.innerWidth < 1024) { 
+                 if (window.innerWidth < 1024) {
                     sidebar.classList.remove('open-mobile');
                     sidebar.classList.add('hidden-mobile');
                     sidebarOverlay.classList.add('hidden');
@@ -784,7 +875,7 @@
             });
         });
 
-        if (pb) { 
+        if (pb) {
             checkInitialAuth();
         } else {
             console.error("PocketBase não foi inicializado corretamente no DOMContentLoaded.");
